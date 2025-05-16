@@ -2,32 +2,17 @@ import Sequelize from "sequelize"
 import sequelize from "../utils/connect.js"
 
 
-const quiz = sequelize.define('Quiz',
+const quizshistory = sequelize.define('Quizhistory',
     {
-        id: {
-            primaryKey: true,
-            autoIncrement: true,
-            allowNull: false,
-            type: Sequelize.INTEGER
-        },
         uid: {
             type: Sequelize.STRING,
-            unique:true,
             allowNull: true
         },
-        title: {
+        answerId: {
             type: Sequelize.STRING,
             allowNull: true
         },
-        images: {
-            type: Sequelize.TEXT,
-            allowNull: true
-        },
-        answers: {
-            type: Sequelize.TEXT,
-            allowNull: true
-        },
-        createruid: {
+        useruid: {
             type: Sequelize.STRING,
             allowNull: true
         },
@@ -41,4 +26,4 @@ const quiz = sequelize.define('Quiz',
 
 
 
-export default quiz
+export default quizshistory

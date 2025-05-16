@@ -12,6 +12,7 @@ const user = sequelize.define('User',
         },
         uid: {
             type: Sequelize.STRING,
+            unique: true,
             allowNull: true
         },
         username: {
@@ -20,14 +21,6 @@ const user = sequelize.define('User',
         },
         password: {
             type: Sequelize.STRING,
-            allowNull: true
-        },
-        quizstory: {
-            type: Sequelize.TEXT,
-            allowNull: true
-        },
-        quizzes: {
-            type: Sequelize.TEXT,
             allowNull: true
         },
         role: {

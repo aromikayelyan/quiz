@@ -3,8 +3,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { configDotenv } from 'dotenv';
 import Quiz from '../models/quiz.js'
 import User from "../models/user.js";
+import quizshistory from '../models/quizhistory.js';
 import authmiddleware from '../middleweares/authmiddleware.js';
 import adminmiddleweare from '../middleweares/adminmiddleweare.js';
+
 
 
 configDotenv()
@@ -33,10 +35,72 @@ router.get('/',  async (req, res) => {
 })
 
 
+
+
+router.get('/myquizes', authmiddleware, async (req, res) => {
+    try {
+        const data = req.user
+        const user = await User.findOne({ where: { uid: data.uid } })
+
+        if (!user){
+            return res.status(404).json({ message: 'user not found' })
+        }
+
+        const myQuizes = await Quiz.findAll({where:{createruid: data.uid}})
+
+
+        return res.status(200).json(myQuizes)
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ message: 'Server error' })
+    }
+})
+
+
+router.get('/myhistory', authmiddleware, async (req, res) => {
+    try {
+        const data = req.user
+        const user = await User.findOne({ where: { uid: data.uid } })
+
+        if (!user){
+            return res.status(404).json({ message: 'user not found' })
+        }
+
+        const quizes = await Quiz.findAll()
+
+        const quizMap = new Map()
+        quizes.forEach(q => quizMap.set(q.uid, q))
+
+        const historydata = []
+
+        const myhistory = await quizshistory.findAll({where:{useruid: data.uid}})
+
+        myhistory.forEach((el) => {
+            const result = quizMap.get(el.uid)
+            if (result) {
+                historydata.push({
+                    result,
+                    answerId: el.answerId
+                })
+            }
+        })
+
+        return res.status(200).json(historydata)
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ message: 'Server error' })
+    }
+})
+
+
 router.get('/:id', async (req, res) => {
     try {
         const uid = req.params.id
         let quiz = await Quiz.findOne({where:{uid}})
+
+        if(!quiz){
+            return res.status(404).json({ message: 'Quiz not found' })
+        }
 
         quiz.answers = JSON.parse(quiz.answers)
        
@@ -49,37 +113,44 @@ router.get('/:id', async (req, res) => {
 })
 
 
+
+
+
+
 router.post('/answer/:id', authmiddleware, async (req, res) => {
     try {
         const data = req.user
         const answerId = req.body.answerId
 
+        const user = await User.findOne({ where: { uid: data.uid } })
         const quiz = await Quiz.findOne({ where: { uid: req.params.id } })
+
+
+        if (!quiz) {
+            return res.status(404).json({ message: 'Quiz not found' })
+        }
+        if (!user){
+            return res.status(404).json({ message: 'user not found' })
+        }
+
+        const alreadyAnswered = await quizshistory.findOne({where:{uid:quiz.uid, useruid: user.uid}})
+
+        if (alreadyAnswered) {
+            return res.status(400).json({ message: 'You have already answered this quiz.' })
+        }
+
         quiz.answers = JSON.parse(quiz.answers)
 
         const result = quiz.answers.find((answer) => answer.id == answerId)
 
-        const saveData = {
-            quizId: req.params.id,
-            userAnswer: result
-        }
+        const answer = await quizshistory.create({
+             uid: req.params.id,
+             answerId,
+             useruid: user.uid
+        })
 
-        const user = await User.findOne({ where: { uid: data.uid } })
-
-        let quizes = []
-
-        if (user.quizstory) {
-            quizes = JSON.parse(user.quizstory)
-        }
-        const alreadyAnswered = quizes.some(q => q.quizId === req.params.id)
-        if (alreadyAnswered) {
-            return res.status(400).json({ message: 'You have already answered this quiz.' })
-        }
-        quizes.push(saveData)
-        user.quizstory = JSON.stringify(quizes)
-        await user.save()
-
-        return res.send(user)
+        
+        return res.status(200).json({ answer: result, savedHistory: answer })
     } catch (error) {
         console.log(error)
         return res.status(500).json({ message: 'Server error', error })
@@ -161,11 +232,11 @@ router.delete('/:id', authmiddleware, async (req, res)=>{
         console.log(user)
         if (quiz.createruid === user.uid || user.role == 'ADMIN') {
             await quiz.destroy()
-            return res.status(201).json({ message: 'deleted' })
+            return res.status(200).json({ message: 'deleted' })
         }
 
 
-        return res.status(204).json({ message: 'net dostupa' })
+        return res.status(403).json({ message: 'net dostupa' })
 
         
     } catch (error) {

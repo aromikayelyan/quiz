@@ -1,8 +1,9 @@
 import express from 'express'
 import sequelize from './utils/connect.js'
-import user from './models/user.js'
-import quiz from './models/quiz.js'
+// import user from './models/user.js'
+// import quiz from './models/quiz.js'
 import quizes from './routes/quizes.js'
+import { Quiz, User, QuizHistory } from './models/modelsconn.js'
 import auth from './routes/auth.js'
 
 
@@ -14,6 +15,11 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use('/quizes', quizes)
 app.use('/auth', auth)
+
+
+// await Quiz.sync({force:true})
+// await User.sync({force:true})
+// await QuizHistory.sync({force:true})
 
 
 
