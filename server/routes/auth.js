@@ -34,7 +34,6 @@ router.post('/reg', checkData, async (req, res) => {
             password: hashPass,
         })
 
-        await user.save()
 
         return res.json({ message: "Пользователь удачно зарегистрирован" })
     } catch (error) {

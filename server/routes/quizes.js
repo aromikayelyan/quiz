@@ -229,7 +229,6 @@ router.delete('/:id', authmiddleware, async (req, res)=>{
         const uid = req.params.id
         const quiz = await Quiz.findOne({where:{uid}})
 
-        console.log(user)
         if (quiz.createruid === user.uid || user.role == 'ADMIN') {
             await quiz.destroy()
             return res.status(200).json({ message: 'deleted' })

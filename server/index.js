@@ -5,12 +5,14 @@ import sequelize from './utils/connect.js'
 import quizes from './routes/quizes.js'
 import { Quiz, User, QuizHistory } from './models/modelsconn.js'
 import auth from './routes/auth.js'
+import cors from 'cors'
 
 
 const PORT = 8004
 const app = express()
 
 
+app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use('/quizes', quizes)
