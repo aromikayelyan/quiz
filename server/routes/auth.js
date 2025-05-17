@@ -38,7 +38,7 @@ router.post('/reg', checkData, async (req, res) => {
         return res.json({ message: "Пользователь удачно зарегистрирован" })
     } catch (error) {
         console.log(error)
-        res.status(400).json({ message: "Ошибка регистрации" })
+        return res.status(400).json({ message: "Ошибка регистрации" })
     }
 })
 
@@ -59,6 +59,8 @@ router.post('/log', async (req, res) => {
         return res.json({token})
     } catch (error) {
         console.log(error)
+        return res.status(400).json({ message: "Ошибка" })
+
     }
 })
 
@@ -71,10 +73,9 @@ router.get('/getusers', adminmiddleweare(), async (req, res) => {
         return res.json(users)
     } catch (error) {
         console.log(error)
+        return res.status(400).json({ message: "Ошибка" })
     }
 })
-
-
 
 
 

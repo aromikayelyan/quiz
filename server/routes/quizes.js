@@ -1,22 +1,35 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { configDotenv } from 'dotenv';
+import multer from 'multer'
 import Quiz from '../models/quiz.js'
+import path from 'path'
 import User from "../models/user.js";
 import quizshistory from '../models/quizhistory.js';
 import authmiddleware from '../middleweares/authmiddleware.js';
 import adminmiddleweare from '../middleweares/adminmiddleweare.js';
-
+import { deleteImages } from '../utils/utils.js';
 
 
 configDotenv()
-
 
 
 const router = Router()
 
 
 
+var storage = multer.diskStorage({
+	destination: function (req, file, cb) {
+		cb(null, 'uploads/')
+	},
+	filename: function (req, file, cb) {
+		cb(null, Date.now() + path.extname(file.originalname))
+	},
+})
+
+
+
+const upload = multer({ storage })
 
 
 router.get('/',  async (req, res) => {
@@ -27,7 +40,16 @@ router.get('/',  async (req, res) => {
             element.answers = JSON.parse(element.answers)
         });
 
-        return res.status(200).json(quizs)
+        if (!quizs) {
+            return res.status(404).json({ message: 'Quizes not found' })
+        }
+
+        const quizess = quizs.map(quiz => {
+			quiz.dataValues.images =  `${req.protocol}://${req.get('host')}/uploads/${quiz.dataValues.images}`
+			return quiz.dataValues
+		})
+
+        return res.status(200).json(quizess)
     } catch (error) {
         console.log(error)
         return res.status(500).json({ message: 'Server error' })
@@ -48,8 +70,20 @@ router.get('/myquizes', authmiddleware, async (req, res) => {
 
         const myQuizes = await Quiz.findAll({where:{createruid: data.uid}})
 
+        if (!myQuizes) {
+            return res.status(404).json({ message: 'You dont have quizes!' })
+        }
 
-        return res.status(200).json(myQuizes)
+        myQuizes.forEach(element => {
+            element.answers = JSON.parse(element.answers)
+        });
+
+        const quizess = myQuizes.map(quiz => {
+			quiz.dataValues.images =  `${req.protocol}://${req.get('host')}/uploads/${quiz.dataValues.images}`
+			return quiz.dataValues
+		})
+
+        return res.status(200).json(quizess)
     } catch (error) {
         console.log(error)
         return res.status(500).json({ message: 'Server error' })
@@ -68,16 +102,20 @@ router.get('/myhistory', authmiddleware, async (req, res) => {
 
         const quizes = await Quiz.findAll()
 
+        if (!quizes) {
+            return res.status(404).json({ message: 'You dont have quiz hostory' })
+        }
+
         const quizMap = new Map()
         quizes.forEach(q => quizMap.set(q.uid, q))
 
+
         const historydata = []
-
         const myhistory = await quizshistory.findAll({where:{useruid: data.uid}})
-
         myhistory.forEach((el) => {
             const result = quizMap.get(el.uid)
             if (result) {
+                result.images =  `${req.protocol}://${req.get('host')}/uploads/${result.images}`
                 historydata.push({
                     result,
                     answerId: el.answerId
@@ -103,16 +141,15 @@ router.get('/:id', async (req, res) => {
         }
 
         quiz.answers = JSON.parse(quiz.answers)
-       
 
+        quiz.images = `${req.protocol}://${req.get('host')}/uploads/${quiz.images}`
+       
         return res.status(200).json(quiz)
     } catch (error) {
         console.log(error)
         return res.status(500).json({ message: 'Server error' })
     }
 })
-
-
 
 
 
@@ -159,33 +196,31 @@ router.post('/answer/:id', authmiddleware, async (req, res) => {
 
 
 
-router.post('/', authmiddleware, async (req, res) => {
+router.post('/', authmiddleware, upload.array('images', 1), async (req, res) => {
     try {
         const data = req.user
 
-    
+        if (!data){
+            return res.status(404).json({ message: 'user not found' })
+        }
+
+        if (!req.files || req.files.length !== 1) {
+            return res.status(400).json({ message: 'Exactly one image is required.' })
+        }
+
+        const image = req.files[0].filename
+        console.log(image)
+
         let {answers} = req.body
         answers = JSON.stringify(answers)
+
         const quiz = await Quiz.create({
 			uid: uuidv4(),
 			title: req.body.title,
-			images: req.body.images,
+			images: image,
 			answers,
 			createruid: data.uid,
 		})
-
-        const user = await User.findOne({where:{uid:data.uid}})
-
-        let userquizes = []
-
-        if(user.quizzes){
-            
-            userquizes = JSON.parse(user.quizzes)
-        }
-        userquizes.push(quiz.uid)
-        user.quizzes = JSON.stringify(userquizes)
-        await user.save()
-
 
 		return res.status(201).json(quiz)
     } catch (error) {
@@ -201,16 +236,16 @@ router.put('/:id', authmiddleware, async (req, res) => {
         const uid = req.params.id
         const quiz = await Quiz.findOne({ where: { uid } })
 
+        if (!quiz) {
+            return res.status(404).json({ message: 'Quiz not found' })
+        }
         if (quiz.createruid != req.user.uid) {
             return res.status(400).json({ message: 'net dostupa' })
         }
-
         if(req.body.answers){
             quiz.answers = JSON.stringify(req.body.answers)
         }
-
         if (req.body.title) quiz.title = req.body.title
-        if (req.body.images) quiz.images = req.body.images
 
         await quiz.save()
 
@@ -229,21 +264,29 @@ router.delete('/:id', authmiddleware, async (req, res)=>{
         const uid = req.params.id
         const quiz = await Quiz.findOne({where:{uid}})
 
+        if (!quiz) {
+            return res.status(404).json({ message: 'Quiz not found' })
+        }
         if (quiz.createruid === user.uid || user.role == 'ADMIN') {
+
+            try {
+                await deleteImages(quiz.images)
+            } catch (error) {
+                console.log('no such')
+            }
+
+
             await quiz.destroy()
             return res.status(200).json({ message: 'deleted' })
         }
 
-
         return res.status(403).json({ message: 'net dostupa' })
 
-        
     } catch (error) {
         console.log(error)
         return res.status(500).json({ message: 'Server error' })
     }
 })
-
 
 
 
