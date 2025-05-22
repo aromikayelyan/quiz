@@ -7,8 +7,9 @@ import path from 'path'
 import User from "../models/user.js";
 import quizshistory from '../models/quizhistory.js';
 import authmiddleware from '../middleweares/authmiddleware.js';
-import adminmiddleweare from '../middleweares/adminmiddleweare.js';
+// import adminmiddleweare from '../middleweares/adminmiddleweare.js';
 import { deleteImages } from '../utils/utils.js';
+import { title } from 'process';
 
 
 configDotenv()
@@ -162,7 +163,6 @@ router.post('/answer/:id', authmiddleware, async (req, res) => {
         const user = await User.findOne({ where: { uid: data.uid } })
         const quiz = await Quiz.findOne({ where: { uid: req.params.id } })
 
-
         if (!quiz) {
             return res.status(404).json({ message: 'Quiz not found' })
         }
@@ -171,13 +171,11 @@ router.post('/answer/:id', authmiddleware, async (req, res) => {
         }
 
         const alreadyAnswered = await quizshistory.findOne({where:{uid:quiz.uid, useruid: user.uid}})
-
         if (alreadyAnswered) {
             return res.status(400).json({ message: 'You have already answered this quiz.' })
         }
 
         quiz.answers = JSON.parse(quiz.answers)
-
         const result = quiz.answers.find((answer) => answer.id == answerId)
 
         const answer = await quizshistory.create({
@@ -185,7 +183,6 @@ router.post('/answer/:id', authmiddleware, async (req, res) => {
              answerId,
              useruid: user.uid
         })
-
         
         return res.status(200).json({ answer: result, savedHistory: answer })
     } catch (error) {
@@ -203,20 +200,30 @@ router.post('/', authmiddleware, upload.array('images', 1), async (req, res) => 
         if (!data){
             return res.status(404).json({ message: 'user not found' })
         }
-
         if (!req.files || req.files.length !== 1) {
             return res.status(400).json({ message: 'Exactly one image is required.' })
         }
 
-        const image = req.files[0].filename
-        console.log(image)
+        let {answers, title} = req.body
+        answers = JSON.parse(answers)
+        
 
-        let {answers} = req.body
+        if (!title) {
+            return res.status(400).json({ message: 'Exactly one title is required.' })
+        }
+        if(!answers){
+            return res.status(400).json({ message: 'Exactly one answers is required.' })
+        }
+
+
         answers = JSON.stringify(answers)
+
+        const image = req.files[0].filename
+  
 
         const quiz = await Quiz.create({
 			uid: uuidv4(),
-			title: req.body.title,
+			title,
 			images: image,
 			answers,
 			createruid: data.uid,
@@ -231,18 +238,31 @@ router.post('/', authmiddleware, upload.array('images', 1), async (req, res) => 
 
 
 
-router.put('/:id', authmiddleware, async (req, res) => {
+router.put('/:id', authmiddleware, upload.array('images', 1), async (req, res) => {
     try {
         const uid = req.params.id
         const quiz = await Quiz.findOne({ where: { uid } })
 
-        if (!quiz) {
-            return res.status(404).json({ message: 'Quiz not found' })
-        }
+
+
         if (quiz.createruid != req.user.uid) {
             return res.status(400).json({ message: 'net dostupa' })
         }
-        if(req.body.answers){
+        if (!quiz) {
+            return res.status(404).json({ message: 'Quiz not found' })
+        }
+        if (req.files && req.files.length > 0) {
+
+            try {
+                await deleteImages(quiz.images)
+            } catch (error) {
+                console.log('Image not found or error deleting:', error);
+            }
+
+            const image = req.files[0].filename
+            quiz.images = image
+        }
+        if (req.body.answers) {
             quiz.answers = JSON.stringify(req.body.answers)
         }
         if (req.body.title) quiz.title = req.body.title
@@ -272,10 +292,8 @@ router.delete('/:id', authmiddleware, async (req, res)=>{
             try {
                 await deleteImages(quiz.images)
             } catch (error) {
-                console.log('no such')
+                console.log('Image not found or error deleting:', error);
             }
-
-
             await quiz.destroy()
             return res.status(200).json({ message: 'deleted' })
         }
@@ -291,3 +309,6 @@ router.delete('/:id', authmiddleware, async (req, res)=>{
 
 
 export default router
+
+
+

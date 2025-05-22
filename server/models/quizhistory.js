@@ -6,15 +6,15 @@ const quizshistory = sequelize.define('Quizhistory',
     {
         uid: {
             type: Sequelize.STRING,
-            allowNull: true
+            allowNull: false
         },
         answerId: {
             type: Sequelize.STRING,
-            allowNull: true
+            allowNull: false
         },
         useruid: {
             type: Sequelize.STRING,
-            allowNull: true
+            allowNull: false
         },
         createdAt: {
             type: Sequelize.DATE,

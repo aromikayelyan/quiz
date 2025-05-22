@@ -13,15 +13,15 @@ const user = sequelize.define('User',
         uid: {
             type: Sequelize.STRING,
             unique: true,
-            allowNull: true
+            allowNull: false
         },
         username: {
             type: Sequelize.STRING,
-            allowNull: true
+            allowNull: false
         },
         password: {
             type: Sequelize.STRING,
-            allowNull: true
+            allowNull: false
         },
         role: {
             type: Sequelize.STRING,

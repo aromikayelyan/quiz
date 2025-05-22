@@ -13,7 +13,7 @@ const quiz = sequelize.define('Quiz',
         uid: {
             type: Sequelize.STRING,
             unique:true,
-            allowNull: true
+            allowNull: false
         },
         title: {
             type: Sequelize.STRING,
